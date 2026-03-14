@@ -1164,12 +1164,126 @@
       .footer-bottom { padding: 16px; }
       .h-panel-content { left: 16px; right: 16px; bottom: 28px; }
     }
+
+    /* ── CUSTOM CURSOR ── */
+    #cursor-dot {
+      position: fixed;
+      width: 6px; height: 6px;
+      background: var(--gold);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 10000;
+      transform: translate(-50%, -50%);
+      will-change: left, top;
+    }
+    #cursor-ring {
+      position: fixed;
+      width: 32px; height: 32px;
+      border: 1px solid rgba(184,149,74,0.55);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 10000;
+      transform: translate(-50%, -50%);
+      transition: width 0.3s cubic-bezier(0.23,1,0.32,1),
+                  height 0.3s cubic-bezier(0.23,1,0.32,1),
+                  border-color 0.3s;
+      will-change: left, top;
+    }
+    @media (pointer: coarse) {
+      #cursor-dot, #cursor-ring { display: none; }
+    }
+
+    /* ── PARTICLE CANVAS ── */
+    #particle-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+    #particle-canvas.visible { opacity: 1; }
+
+    /* ── SCROLL REVEAL ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(38px);
+      transition: opacity 0.75s cubic-bezier(0.22,1,0.36,1),
+                  transform 0.75s cubic-bezier(0.22,1,0.36,1);
+    }
+    .reveal.in-view { opacity: 1; transform: translateY(0); }
+    .reveal-left {
+      opacity: 0;
+      transform: translateX(-40px);
+      transition: opacity 0.75s cubic-bezier(0.22,1,0.36,1),
+                  transform 0.75s cubic-bezier(0.22,1,0.36,1);
+    }
+    .reveal-left.in-view { opacity: 1; transform: translateX(0); }
+    .reveal-scale {
+      opacity: 0;
+      transform: scale(0.93);
+      transition: opacity 0.65s cubic-bezier(0.22,1,0.36,1),
+                  transform 0.65s cubic-bezier(0.22,1,0.36,1);
+    }
+    .reveal-scale.in-view { opacity: 1; transform: scale(1); }
+
+    /* ── GOLD SHIMMER on headings ── */
+    @keyframes goldShimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    .shimmer-gold {
+      background: linear-gradient(90deg, #8a6f2e 10%, #d4af6a 40%, #f5e0a0 55%, #d4af6a 70%, #8a6f2e 90%);
+      background-size: 250% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: goldShimmer 3.5s linear infinite;
+      display: inline-block;
+    }
+
+    /* ── MAGNETIC BUTTONS ── */
+    .btn-primary, .btn-ghost, .nav-cta, .pricing-btn, .btn-dark {
+      transition: transform 0.4s cubic-bezier(0.23,1,0.32,1),
+                  background-color 0.2s, color 0.2s,
+                  border-color 0.2s, opacity 0.2s !important;
+    }
+
+    /* ── FEATURE CARD hover glow ── */
+    .feature-card {
+      transition: transform 0.35s cubic-bezier(0.22,1,0.36,1),
+                  box-shadow 0.35s ease, border-color 0.35s ease !important;
+    }
+    .feature-card:hover {
+      transform: translateY(-6px) !important;
+      box-shadow: 0 20px 60px rgba(184,149,74,0.12) !important;
+    }
+
+    /* ── PRICING CARD tilt ── */
+    .pricing-card {
+      transition: transform 0.3s cubic-bezier(0.23,1,0.32,1),
+                  box-shadow 0.3s ease !important;
+      transform-style: preserve-3d;
+    }
+
+    /* ── SPEC ROW hover ── */
+    .spec-row {
+      transition: background 0.25s, padding-left 0.25s !important;
+    }
+    .spec-row:hover {
+      background: rgba(184,149,74,0.06) !important;
+      padding-left: 12px !important;
+    }
   </style>
 </head>
 <body>
 
   <!-- Progress Bar -->
   <div id="progress-bar"></div>
+  <div id="cursor-dot"></div>
+  <div id="cursor-ring"></div>
+  <canvas id="particle-canvas"></canvas>
 
   <!-- Loading Screen -->
   <div id="loader">
@@ -1208,7 +1322,7 @@
   <!-- Scroll Animation Section — IS the hero -->
   <div class="scroll-section" id="scroll-section">
     <div class="sticky-wrapper">
-      <canvas id="frame-canvas" width="2568" height="1432"></canvas>
+      <canvas id="frame-canvas" width="1280" height="716"></canvas>
       <div class="canvas-gradient"></div>
 
       <!-- Hero text overlay — fades out as user scrolls -->
@@ -1645,8 +1759,7 @@
   <!-- ── SCROLL ANIMATION ENGINE ── -->
   <script>
     const TOTAL = 121;
-    const BATCH = 20;
-    const SRC_W = 2568, SRC_H = 1432; // 2× Lanczos-upscaled frames (sharper on Retina)
+    const SRC_W = 1280, SRC_H = 716;
     const frames = new Array(TOTAL);
     const canvas = document.getElementById('frame-canvas');
     const ctx = canvas.getContext('2d');
@@ -1707,23 +1820,22 @@
     }
 
     async function preloadAll() {
-      let loaded = 0;
-      for (let i = 0; i < TOTAL; i += BATCH) {
-        const batch = [];
-        for (let j = i; j < Math.min(i + BATCH, TOTAL); j++) {
-          batch.push(loadFrame(j).then(() => {
-            loaded++;
-            const pct = Math.round((loaded / TOTAL) * 100);
-            loaderFill.style.width = pct + '%';
-            loaderPct.textContent = pct + '%';
-          }));
-        }
-        await Promise.all(batch);
-      }
+      // Show site as soon as frame 0 arrives — don't wait for all 121
+      await loadFrame(0);
       drawCover(frames[0]);
       drawnFrame = 0;
       loaderEl.classList.add('hidden');
       setTimeout(() => { loaderEl.style.display = 'none'; }, 800);
+
+      // Load ALL remaining frames in parallel in the background
+      let loaded = 1;
+      const remaining = Array.from({ length: TOTAL - 1 }, (_, i) =>
+        loadFrame(i + 1).then(() => {
+          loaded++;
+          loaderFill.style.width = Math.round((loaded / TOTAL) * 100) + '%';
+        })
+      );
+      await Promise.all(remaining);
     }
 
     // ── Scroll progress ──
@@ -1774,9 +1886,16 @@
 
     // ── rAF render loop ──
     function tick() {
-      if (frames[currentFrame] && currentFrame !== drawnFrame) {
-        drawCover(frames[currentFrame]);
-        drawnFrame = currentFrame;
+      let idx = currentFrame;
+      // If this frame isn't loaded yet, use nearest loaded frame (no blank flash)
+      if (!frames[idx]) {
+        for (let i = idx - 1; i >= 0; i--) {
+          if (frames[i]) { idx = i; break; }
+        }
+      }
+      if (frames[idx] && idx !== drawnFrame) {
+        drawCover(frames[idx]);
+        drawnFrame = idx;
       }
       requestAnimationFrame(tick);
     }
@@ -1904,6 +2023,243 @@
         }
       });
     } // end mobile check
+  </script>
+
+  <!-- ── ENHANCEMENTS: Cursor, Particles, Reveals, Counters, Magnetic ── -->
+  <script>
+  (function() {
+
+    // ── 1. CUSTOM CURSOR ──────────────────────────────────────────────
+    const dot  = document.getElementById('cursor-dot');
+    const ring = document.getElementById('cursor-ring');
+    if (dot && ring && window.matchMedia('(pointer: fine)').matches) {
+      let mx = -100, my = -100, rx = -100, ry = -100;
+
+      document.addEventListener('mousemove', e => {
+        mx = e.clientX; my = e.clientY;
+        dot.style.left = mx + 'px';
+        dot.style.top  = my + 'px';
+      });
+
+      (function animateRing() {
+        rx += (mx - rx) * 0.14;
+        ry += (my - ry) * 0.14;
+        ring.style.left = rx + 'px';
+        ring.style.top  = ry + 'px';
+        requestAnimationFrame(animateRing);
+      })();
+
+      const hoverTargets = 'a, button, .feature-card, .pricing-card, .h-panel, .spec-row';
+      document.querySelectorAll(hoverTargets).forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          ring.style.width  = '56px';
+          ring.style.height = '56px';
+          ring.style.borderColor = 'rgba(184,149,74,0.9)';
+          dot.style.width  = '4px';
+          dot.style.height = '4px';
+          dot.style.opacity = '0.6';
+        });
+        el.addEventListener('mouseleave', () => {
+          ring.style.width  = '32px';
+          ring.style.height = '32px';
+          ring.style.borderColor = 'rgba(184,149,74,0.55)';
+          dot.style.width  = '6px';
+          dot.style.height = '6px';
+          dot.style.opacity = '1';
+        });
+      });
+    }
+
+    // ── 2. AMBIENT PARTICLES ─────────────────────────────────────────
+    const pCanvas = document.getElementById('particle-canvas');
+    const pCtx    = pCanvas && pCanvas.getContext('2d');
+    if (pCtx) {
+      let W, H, particles = [];
+      const N = 55;
+
+      function resize() {
+        W = pCanvas.width  = window.innerWidth;
+        H = pCanvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      class Particle {
+        constructor() { this.reset(true); }
+        reset(init) {
+          this.x  = Math.random() * W;
+          this.y  = init ? Math.random() * H : H + 10;
+          this.r  = Math.random() * 1.4 + 0.3;
+          this.vy = -(Math.random() * 0.35 + 0.12);
+          this.vx = (Math.random() - 0.5) * 0.18;
+          this.alpha = 0;
+          this.maxA = Math.random() * 0.35 + 0.08;
+          this.fadeIn  = 0.005;
+          this.fadeOut = 0.003;
+          this.life = 0;
+          this.maxLife = Math.random() * 320 + 180;
+        }
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          this.life++;
+          if (this.life < 60)       this.alpha = Math.min(this.alpha + this.fadeIn, this.maxA);
+          else if (this.life > this.maxLife - 60) this.alpha = Math.max(this.alpha - this.fadeOut, 0);
+          if (this.life > this.maxLife || this.y < -10) this.reset(false);
+        }
+        draw() {
+          pCtx.beginPath();
+          pCtx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+          pCtx.fillStyle = `rgba(184,149,74,${this.alpha})`;
+          pCtx.fill();
+        }
+      }
+
+      for (let i = 0; i < N; i++) particles.push(new Particle());
+
+      // Only show particles in dark sections (hero scroll + intro panel)
+      let particlesActive = false;
+      function syncParticles() {
+        const inDark = window.scrollY < window.innerHeight * 6;
+        if (inDark !== particlesActive) {
+          particlesActive = inDark;
+          pCanvas.classList.toggle('visible', inDark);
+        }
+      }
+      window.addEventListener('scroll', syncParticles, { passive: true });
+      syncParticles();
+
+      (function loop() {
+        pCtx.clearRect(0, 0, W, H);
+        if (particlesActive) {
+          particles.forEach(p => { p.update(); p.draw(); });
+        }
+        requestAnimationFrame(loop);
+      })();
+    }
+
+    // ── 3. SCROLL REVEAL (IntersectionObserver) ───────────────────────
+    // Mark elements for reveal
+    const revealSelectors = [
+      { sel: '.section-header',    cls: 'reveal',       delay: 0   },
+      { sel: '.feature-card',      cls: 'reveal',       delay: 80  },
+      { sel: '.spec-row',          cls: 'reveal',       delay: 60  },
+      { sel: '.pricing-card',      cls: 'reveal-scale', delay: 100 },
+      { sel: '.stats-band',        cls: 'reveal',       delay: 0   },
+      { sel: '.spec-image',        cls: 'reveal-left',  delay: 0   },
+      { sel: '.contact-strip',     cls: 'reveal',       delay: 0   },
+    ];
+
+    revealSelectors.forEach(({ sel, cls }) => {
+      document.querySelectorAll(sel).forEach(el => el.classList.add(cls));
+    });
+
+    // Stagger siblings within the same parent
+    function staggerGroup(parentSel, childSel, delayMs) {
+      document.querySelectorAll(parentSel).forEach(parent => {
+        parent.querySelectorAll(childSel).forEach((child, i) => {
+          child.style.transitionDelay = (i * delayMs) + 'ms';
+        });
+      });
+    }
+    staggerGroup('.features-grid', '.feature-card', 80);
+    staggerGroup('.pricing-grid',  '.pricing-card',  100);
+    staggerGroup('.spec-list',     '.spec-row',       50);
+
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal, .reveal-scale, .reveal-left')
+      .forEach(el => observer.observe(el));
+
+    // ── 4. GOLD SHIMMER on <em> inside section titles ─────────────────
+    document.querySelectorAll('.section-title em, .intro-title em, .hero-title em').forEach(em => {
+      em.classList.add('shimmer-gold');
+    });
+
+    // ── 5. STAT COUNTER ANIMATION ─────────────────────────────────────
+    function animateCounter(el, rawText) {
+      const match = rawText.match(/^([\d,]+)/);
+      if (!match) return;
+      const target = parseInt(match[1].replace(',', ''));
+      const suffix = rawText.slice(match[0].length);
+      const prefix = '';
+      const duration = 1600;
+      const start = performance.now();
+
+      (function tick(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        const val = Math.floor(ease * target);
+        el.textContent = (target >= 1000 ? val.toLocaleString() : val) + suffix;
+        if (t < 1) requestAnimationFrame(tick);
+        else el.textContent = (target >= 1000 ? target.toLocaleString() : target) + suffix;
+      })(start);
+    }
+
+    const counterObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        // Find the text node — stat-num may contain small tags
+        const clone = el.cloneNode(true);
+        clone.querySelectorAll('small').forEach(s => s.remove());
+        const numText = clone.textContent.trim();
+        if (/\d/.test(numText)) animateCounter(el.querySelector('.stat-num-val') || el, numText);
+        counterObserver.unobserve(el);
+      });
+    }, { threshold: 0.5 });
+
+    document.querySelectorAll('.stat-num').forEach(el => {
+      // Wrap text in a span for counter targeting
+      const small = el.querySelector('small');
+      const txt = el.childNodes[0] ? el.childNodes[0].textContent.trim() : '';
+      if (txt && /\d/.test(txt)) {
+        const span = document.createElement('span');
+        span.className = 'stat-num-val';
+        span.textContent = txt;
+        el.childNodes[0].replaceWith(span);
+        counterObserver.observe(el);
+      }
+    });
+
+    // ── 6. MAGNETIC BUTTONS ───────────────────────────────────────────
+    if (window.matchMedia('(pointer: fine)').matches) {
+      document.querySelectorAll('.btn-primary, .btn-ghost, .nav-cta, .pricing-btn, .btn-dark').forEach(btn => {
+        btn.addEventListener('mousemove', e => {
+          const r = btn.getBoundingClientRect();
+          const x = (e.clientX - r.left - r.width  / 2) * 0.22;
+          const y = (e.clientY - r.top  - r.height / 2) * 0.22;
+          btn.style.transform = `translate(${x}px, ${y}px)`;
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.transform = '';
+        });
+      });
+    }
+
+    // ── 7. PRICING CARD 3D TILT ───────────────────────────────────────
+    if (window.matchMedia('(pointer: fine)').matches) {
+      document.querySelectorAll('.pricing-card').forEach(card => {
+        card.addEventListener('mousemove', e => {
+          const r   = card.getBoundingClientRect();
+          const x   = (e.clientX - r.left) / r.width  - 0.5;
+          const y   = (e.clientY - r.top)  / r.height - 0.5;
+          card.style.transform = `perspective(600px) rotateY(${x * 8}deg) rotateX(${-y * 8}deg) translateY(-4px)`;
+        });
+        card.addEventListener('mouseleave', () => {
+          card.style.transform = '';
+        });
+      });
+    }
+
+  })();
   </script>
 </body>
 </html>
